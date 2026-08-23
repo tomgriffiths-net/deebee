@@ -1,0 +1,11 @@
+{
+    "id_name": "deebee",
+    "name": "DeeBee",
+    "version": 1,
+    "author": "tom",
+    "description": "A database for many things",
+    "dependencies": {
+        "communicator_server": 18,
+        "math": 5
+    }
+}
