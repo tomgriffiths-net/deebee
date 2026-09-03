@@ -3,6 +3,68 @@ class deebee{
     private static array $bees = [];
     private static array $cache = [];
     private static array $updates = [];
+    private static array $definitions = [
+        "get" => [
+            "args" => ["string","string","boolean"],
+            "defaults" => [2=>false]
+        ],
+        "update" => [
+            "args" => ["string","string","mixed"],
+            "defaults" => []
+        ],
+        "increment" => [
+            "args" => ["string","string","integer|double"],
+            "defaults" => [2=>1]
+        ],
+        "inArray" => [
+            "args" => ["string","string","mixed","boolean"],
+            "defaults" => [3=>false]
+        ],
+        "count" => [
+            "args" => ["string","string"],
+            "defaults" => []
+        ],
+        "doThings" => [
+            "args" => ["string","array"],
+            "defaults" => []
+        ],
+        "removeFromList" => [
+            "args" => ["string","string","mixed","boolean","boolean"],
+            "defaults" => [3=>false, 4=>false]
+        ],
+        "addToList" => [
+            "args" => ["string","string","mixed","boolean"],
+            "defaults" => [3=>false]
+        ],
+        "isset" => [
+            "args" => ["string","string","boolean"],
+            "defaults" => [2=>false]
+        ],
+        "listItems" => [
+            "args" => ["string","string"],
+            "defaults" => []
+        ],
+        "top" => [
+            "args" => ["string","string","string","array","integer","boolean"],
+            "defaults" => [2=>"anything", 3=>[], 4=>50, 5=>false]
+        ],
+        "search" => [
+            "args" => ["string","string","string","array"],
+            "defaults" => [2=>"anything", 3=>[]]
+        ],
+        "newItem" => [
+            "args" => ["string","string","mixed","boolean","boolean"],
+            "defaults" => [2=>null, 3=>true, 4=>true]
+        ],
+        "set" => [
+            "args" => ["string","string","mixed"],
+            "defaults" => []
+        ],
+        "remove" => [
+            "args" => ["string","string"],
+            "defaults" => []
+        ]
+    ];
 
     public static function command($line):void{
         $line = cli::parseLine($line);
@@ -142,30 +204,47 @@ class deebee{
         }
         return array_keys($children);
     }
+    public static function top(string $bee, string $keyPattern, string $mode="anything", array $args=[], int $limit=50, bool $ascending=false):?array{
+        if($mode === "listContains"){
+            return null;
+        }
+    
+        $matches = self::search($bee, $keyPattern, $mode, $args);
+        if(!is_array($matches)){
+            return null;
+        }
+
+        $ascending ? asort($matches) : arsort($matches);
+
+        return array_slice($matches, 0, $limit, true);
+    }
     public static function search(string $bee, string $keyPattern, string $mode="anything", array $args=[]):?array{
         if(!isset(self::$bees[$bee])){
             return null;
         }
 
-        if(in_array($mode, ["contains","startsWith","endsWith","listContains"])){
+        if(in_array($mode, ["contains","startsWith","endsWith"])){
             if(!is_string($args[0] ?? null)){
                 return null;
             }
 
-            if($mode !== "listContains"){
-                if(array_key_exists(1, $args)){
-                    if(!is_bool($args[1])){
-                        return null;
-                    }
+            if(array_key_exists(1, $args)){
+                if(!is_bool($args[1])){
+                    return null;
                 }
-                else{
-                    $args[1] = false;
-                }
+            }
+            else{
+                $args[1] = false;
+            }
 
-                //If lowercase requested, convert substring to lowercase for function.
-                if($args[1]){
-                    $args[0] = strtolower($args[0]);
-                }
+            //If lowercase requested, convert substring to lowercase for function.
+            if($args[1]){
+                $args[0] = strtolower($args[0]);
+            }
+        }
+        elseif($mode === "listContains"){
+            if(!array_key_exists(0, $args)){
+                return null;
             }
         }
         elseif(in_array($mode, ["greaterThan","lessThan","between"])){
@@ -200,8 +279,8 @@ class deebee{
                 if($lowerCase){$value = strtolower($value);}
                 return str_ends_with($value, $substring);
             },
-            'listContains' => function($value, $string):bool{
-                return is_array($value) && in_array($string, $value);
+            'listContains' => function($value, $thing):bool{
+                return is_array($value) && in_array($thing, $value);
             },
             'greaterThan' => function($value, $number):bool{
                 return is_numeric($value) && $number < $value;
@@ -308,7 +387,7 @@ class deebee{
         return $found ? $result : null;
     }
     //Normally fast stuff
-    public static function increment(string $bee, string $key, int|float $by=1):?int{
+    public static function increment(string $bee, string $key, int|float $by=1):int|float|null{
         if(!isset(self::$bees[$bee]) || !array_key_exists($key, self::$cache[$bee]) || !is_numeric(self::$cache[$bee][$key])){
             return null;
         }
@@ -327,6 +406,123 @@ class deebee{
         self::$updates[$bee][$key] = true;
 
         return true;
+    }
+    public static function inArray(string $bee, string $key, mixed $value, bool $strict=false):bool{
+        if(!isset(self::$bees[$bee]) || !array_key_exists($key, self::$cache[$bee]) || !is_array(self::$cache[$bee][$key])){
+            return false;
+        }
+
+        return in_array($value, self::$cache[$bee][$key], $strict);
+    }
+    public static function count(string $bee, string $key):?int{
+        if(!isset(self::$bees[$bee]) || !array_key_exists($key, self::$cache[$bee]) || !is_array(self::$cache[$bee][$key])){
+            return null;
+        }
+
+        return count(self::$cache[$bee][$key]);
+    }
+    public static function removeFromList(string $bee, string $key, mixed $value, bool $strict=false, bool $checkDuplicates=false):bool{
+        if(!isset(self::$bees[$bee]) || !array_key_exists($key, self::$cache[$bee]) || !is_array(self::$cache[$bee][$key])){
+            return false;
+        }
+
+        $valueType = gettype($value);
+
+        foreach(self::$cache[$bee][$key] as $listValueKey => $listValue){
+            if($strict){
+                if($valueType !== gettype($listValue)){
+                    continue;
+                }
+            }
+
+            if($value != $listValue){
+                continue;
+            }
+
+            unset(self::$cache[$bee][$key][$listValueKey]);
+
+            if(!$checkDuplicates){
+                break;
+            }
+        }
+
+        self::$cache[$bee][$key] = array_values(self::$cache[$bee][$key]);
+        self::$updates[$bee][$key] = true;
+
+        return true;
+    }
+    public static function addToList(string $bee, string $key, mixed $value, bool $addToTop=false):bool{
+        if(!isset(self::$bees[$bee]) || !array_key_exists($key, self::$cache[$bee]) || !is_array(self::$cache[$bee][$key])){
+            return false;
+        }
+
+        if($addToTop){
+            array_unshift(self::$cache[$bee][$key], $value);
+        }
+        else{
+            self::$cache[$bee][$key][] = $value;
+        }
+        
+        self::$updates[$bee][$key] = true;
+
+        return true;
+    }
+    public static function doThings(string $bee, array $actions):?array{
+        if(!isset(self::$bees[$bee])){
+            return null;
+        }
+
+        $returns = [];
+        $processedActions = [];
+        $actionNumber = 0;
+        foreach($actions as $actionArgs){
+            //Action name
+            if(!is_string($actionArgs[0] ?? null)){
+                return null;
+            }
+            $actionName = array_shift($actionArgs);
+
+            //Action defenition
+            if(!isset(self::$definitions[$actionName])){
+                return null;
+            }
+            $actionDef = self::$definitions[$actionName];
+            
+            //Add bee to args
+            array_unshift($actionArgs, $bee);
+
+            //Check action args
+            foreach($actionDef['args'] as $actionArgNum => $actionArgType){
+                if($actionArgNum === 0){//on bee
+                    continue;
+                }
+                if(array_key_exists($actionArgNum, $actionArgs)){
+                    if($actionArgType !== "mixed"){
+                        if(!in_array(gettype($actionArgs[$actionArgNum]), explode("|", $actionArgType))){
+                            return null;
+                        }
+                    }
+                }
+                else{
+                    if(!array_key_exists($actionArgNum, $actionDef['defaults'])){
+                        return null;
+                    }
+                    $actionArgs[$actionArgNum] = $actionDef['defaults'][$actionArgNum];
+                }
+            }
+
+            $processedActions[$actionNumber]['name'] = $actionName;
+            $processedActions[$actionNumber]['args'] = $actionArgs;
+
+            $actionNumber++;
+        }
+
+        foreach($processedActions as $actionNumber => $action){
+            $actionName = $action['name'];
+            $returns[$actionNumber] = self::{$actionName}(...$action['args']);
+        }
+
+        return $returns;
     }
     private static function checkAncestor(string $bee, string $key, bool $deleteOnFind=false):bool{
         $parts = explode(self::$bees[$bee]['seperator'], $key);
@@ -452,137 +648,56 @@ class deebee{
         return $return;
     }
     //Communicator stuff
-    public static function communicate(string $action, ...$args):mixed{
+    public static function communicate(...$args):mixed{
         $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
         if(!isset($backtrace[2]['class']) || $backtrace[2]['class'] !== "communicator_server"){
             mklog(1, 'You cannot call communicate outside of communicator_server');
             return null;
         }
 
-        if(!in_array($action, ["get","update","increment","isset","listItems","search","newItem","set","remove"])){
+        //arg 0 is action
+        //arg 1 is bee
+        //arg 2+ is extra args
+
+        if(!is_string($args[1] ?? null) || !isset(self::$bees[$args[1]])){
             return null;
         }
 
-        if(!array_key_exists(0,$args) || !isset(self::$bees[$args[0]])){
-            return null;
-        }
+        $bee = $args[1];
+        unset($args[1]);
+        $args = array_values($args);
 
-        if(count(self::$bees[$args[0]]['whitelist']) > 0){
+        if(count(self::$bees[$bee]['whitelist']) > 0){
             $name = communicator::getLastReceivedName();
 
-            if(!in_array(strtolower($name), self::$bees[$args[0]]['whitelist'])){
+            if(!in_array(strtolower($name), self::$bees[$bee]['whitelist'])){
                 return null;
             }
         }
 
-        return self::$action(...$args);
+        $returns = self::doThings($bee, [$args]);
+        if(!is_array($returns)){
+            return null;
+        }
+        return $returns[0];
     }
     public static function communicatorServerActions():array{
-        return [
-            "get" => [
+        $actions = [];
+        foreach(self::$definitions as $defName => $defOps){
+            $action = [
                 "function" => "deebee::communicate",
-                "args" => [
-                    "get",
-                    "--0",
-                    "--1",
-                    "--2"
-                ],
-                "defArgs" => [
-                    2 => false
-                ]
-            ],
-            "update" => [
-                "function" => "deebee::communicate",
-                "args" => [
-                    "update",
-                    "--0",
-                    "--1",
-                    "--2"
-                ]
-            ],
-            "increment" => [
-                "function" => "deebee::communicate",
-                "args" => [
-                    "increment",
-                    "--0",
-                    "--1",
-                    "--2"
-                ],
-                "defArgs" => [
-                    2 => 1
-                ]
-            ],
-            "isset" => [
-                "function" => "deebee::communicate",
-                "args" => [
-                    "isset",
-                    "--0",
-                    "--1",
-                    "--2"
-                ],
-                "defArgs" => [
-                    2 => false
-                ]
-            ],
-            "listItems" => [
-                "function" => "deebee::communicate",
-                "args" => [
-                    "listItems",
-                    "--0",
-                    "--1"
-                ],
-                "defArgs" => [
-                    2 => false
-                ]
-            ],
-            "search" => [
-                "function" => "deebee::communicate",
-                "args" => [
-                    "search",
-                    "--0",
-                    "--1",
-                    "--2",
-                    "--3"
-                ],
-                "defArgs" => [
-                    2 => "anything",
-                    3 => [],
-                ]
-            ],
-            "newItem" => [
-                "function" => "deebee::communicate",
-                "args" => [
-                    "newItem",
-                    "--0",
-                    "--1",
-                    "--2",
-                    "--3",
-                    "--4"
-                ],
-                "defArgs" => [
-                    2 => null,
-                    3 => true,
-                    4 => true
-                ]
-            ],
-            "set" => [
-                "function" => "deebee::communicate",
-                "args" => [
-                    "set",
-                    "--0",
-                    "--1",
-                    "--2"
-                ]
-            ],
-            "remove" => [
-                "function" => "deebee::communicate",
-                "args" => [
-                    "remove",
-                    "--0",
-                    "--1"
-                ]
-            ]
-        ];
+                "args" => [$defName],
+                "defArgs" => $defOps["defaults"]
+            ];
+
+            $numArgs = count($defOps['args']);
+            for($i=0; $i<$numArgs; $i++){
+                $action["args"][] = "--$i";
+            }
+
+            $actions[$defName] = $action;
+        }
+        return $actions;
     }
     public static function communicatorServerThingsToDo():array{
         return [
