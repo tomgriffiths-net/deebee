@@ -28,6 +28,26 @@ class deebee{
             "args" => ["string","array"],
             "defaults" => []
         ],
+        "getSetsFromList" => [
+            "args" => ["string","string","string","array"],
+            "defaults" => []
+        ],
+        "getSets" => [
+            "args" => ["string","string","array","array"],
+            "defaults" => []
+        ],
+        "getSet" => [
+            "args" => ["string","string","array"],
+            "defaults" => []
+        ],
+        "getFromList" => [
+            "args" => ["string","string","string"],
+            "defaults" => []
+        ],
+        "getFromKey" => [
+            "args" => ["string","string","string"],
+            "defaults" => []
+        ],
         "removeFromList" => [
             "args" => ["string","string","mixed","boolean","boolean"],
             "defaults" => [3=>false, 4=>false]
@@ -558,6 +578,131 @@ class deebee{
             }
         }
         return false;
+    }
+    public static function getSetsFromList(string $bee, string $keyPrefix, string $setListKey, array $keyNames):?array{
+        if(!isset(self::$bees[$bee])){
+            return null;
+        }
+
+        if(empty($keyPrefix) || empty($setListKey) || empty($keyNames) || !array_is_list($keyNames)){
+            return null;
+        }
+        foreach($keyNames as $key){
+            if(!is_string($key) || empty($key)){
+                return null;
+            }
+        }
+
+        if(!is_array(self::$cache[$bee][$setListKey] ?? null) || !array_is_list(self::$cache[$bee][$setListKey])){
+            return null;
+        }
+        foreach(self::$cache[$bee][$setListKey] as $set){
+            if(!is_string($set) || empty($set)){
+                return null;
+            }
+        }
+
+        $return = [];
+        foreach(self::$cache[$bee][$setListKey] as $set){
+            foreach($keyNames as $key){
+                $fullKey = $keyPrefix . self::$bees[$bee]['seperator'] . $set . self::$bees[$bee]['seperator'] . $key;
+                $return[$set][$key] = self::$cache[$bee][$fullKey] ?? null;
+            }
+        }
+
+        return $return;
+    }
+    public static function getSets(string $bee, string $keyPrefix, array $sets, array $keyNames):?array{
+        if(!isset(self::$bees[$bee])){
+            return null;
+        }
+
+        if(empty($keyPrefix) || empty($sets) || empty($keyNames) || !array_is_list($sets) || !array_is_list($keyNames)){
+            return null;
+        }
+        foreach($sets as $set){
+            if(!is_string($set) || empty($set)){
+                return null;
+            }
+        }
+        foreach($keyNames as $key){
+            if(!is_string($key) || empty($key)){
+                return null;
+            }
+        }
+
+        $return = [];
+        foreach($sets as $set){
+            foreach($keyNames as $key){
+                $fullKey = $keyPrefix . self::$bees[$bee]['seperator'] . $set . self::$bees[$bee]['seperator'] . $key;
+                $return[$set][$key] = self::$cache[$bee][$fullKey] ?? null;
+            }
+        }
+
+        return $return;
+    }
+    public static function getSet(string $bee, string $keyPrefix, array $keyNames):?array{
+        if(!isset(self::$bees[$bee])){
+            return null;
+        }
+
+        if(empty($keyPrefix) || empty($keyNames) || !array_is_list($keyNames)){
+            return null;
+        }
+        foreach($keyNames as $key){
+            if(!is_string($key) || empty($key)){
+                return null;
+            }
+        }
+
+        $return = [];
+        foreach($keyNames as $key){
+            $fullKey = $keyPrefix . self::$bees[$bee]['seperator'] . $key;
+            $return[$key] = self::$cache[$bee][$fullKey] ?? null;
+        }
+
+        return $return;
+    }
+    public static function getFromList(string $bee, string $keyPrefix, string $keysListKey):?array{
+        if(!isset(self::$bees[$bee])){
+            return null;
+        }
+
+        if(empty($keyPrefix) || empty($keysListKey)){
+            return null;
+        }
+
+        if(!is_array(self::$cache[$bee][$keysListKey] ?? null) || !array_is_list(self::$cache[$bee][$keysListKey])){
+            return null;
+        }
+        foreach(self::$cache[$bee][$keysListKey] as $key){
+            if(!is_string($key) || empty($key)){
+                return null;
+            }
+        }
+
+        $return = [];
+        foreach(self::$cache[$bee][$keysListKey] as $key){
+            $fullKey = $keyPrefix . self::$bees[$bee]['seperator'] . $key;
+            $return[$key] = self::$cache[$bee][$fullKey] ?? null;
+        }
+
+        return $return;
+    }
+    public static function getFromKey(string $bee, string $keyShape, string $keyKey):mixed{
+        if(!isset(self::$bees[$bee])){
+            return null;
+        }
+
+        if(empty($keyShape) || empty($keyKey)){
+            return null;
+        }
+        if(!is_string(self::$cache[$bee][$keyKey] ?? null) || empty(self::$cache[$bee][$keyKey])){
+            return null;
+        }
+
+        $fullKey = str_replace("*", self::$cache[$bee][$keyKey], $keyShape);
+        return self::$cache[$bee][$fullKey] ?? null;
     }
     public static function get(string $bee, string $key, bool $checkCombo=false):mixed{
         if(!isset(self::$bees[$bee])){

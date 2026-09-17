@@ -1,9 +1,9 @@
 {
     "id_name": "deebee",
     "name": "DeeBee",
-    "version": 2,
+    "version": 3,
     "author": "tom",
-    "description": "A database for many things",
+    "description": "",
     "dependencies": {
         "communicator_server": 19,
         "math": 5
